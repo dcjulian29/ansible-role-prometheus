@@ -2,7 +2,7 @@
 
 [![Lint](https://github.com/dcjulian29/ansible-role-prometheus/actions/workflows/lint.yml/badge.svg)](https://github.com/dcjulian29/ansible-role-prometheus/actions/workflows/lint.yml) [![GitHub Issues](https://img.shields.io/github/issues-raw/dcjulian29/ansible-role-prometheus.svg)](https://github.com/dcjulian29/ansible-role-prometheus/issues)
 
-This an Ansible role to deploy prometheus monitoring system into a Kubernetes cluster.
+This an Ansible role to deploy prometheus monitoring system.
 
 ## Requirements
 
