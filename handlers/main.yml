@@ -1,0 +1,69 @@
+---
+- name: Remove prometheus
+  ansible.builtin.command: "docker rm --force {{ prometheus_name }}"
+  register: results
+  failed_when: >-
+    results is failed and
+    "No such container" not in results.stderr | default(false)
+  changed_when: >-
+    'No such container' not in results.stderr | default(false)
+
+- name: Restart prometheus
+  ansible.builtin.command: "docker restart {{ prometheus_name }}"
+
+- name: Remove alertmanager
+  ansible.builtin.command: "docker rm --force {{ alertmanager_name }}"
+  register: results
+  failed_when: >-
+    results is failed and
+    "No such container" not in results.stderr | default(false)
+  changed_when: >-
+    'No such container' not in results.stderr | default(false)
+  when: alertmanager_enabled
+
+- name: Restart alertmanager
+  ansible.builtin.command: "docker restart {{ alertmanager_name }}"
+  when: alertmanager_enabled
+
+- name: Remove grafana
+  ansible.builtin.command: "docker rm --force {{ grafana_name }}"
+  register: results
+  failed_when: >-
+    results is failed and
+    "No such container" not in results.stderr | default(false)
+  changed_when: >-
+    'No such container' not in results.stderr | default(false)
+  when: grafana_enabled
+
+- name: Restart grafana
+  ansible.builtin.command: "docker restart {{ grafana_name }}"
+  failed_when: >-
+    results is failed and
+    "No such container" not in results.stderr | default(false)
+  changed_when: >-
+    'No such container' not in results.stderr | default(false)
+  when: grafana_enabled
+
+- name: Remove node-exporter
+  ansible.builtin.command: "docker rm --force {{ node_exporter_name }}"
+  register: results
+  failed_when: >-
+    results is failed and
+    "No such container" not in results.stderr | default(false)
+  changed_when: >-
+    'No such container' not in results.stderr | default(false)
+
+- name: Restart node-exporter
+  ansible.builtin.command: "docker restart {{ node_exporter_name }}"
+
+- name: Remove cadvisor
+  ansible.builtin.command: "docker rm --force {{ cadvisor_name }}"
+  register: results
+  failed_when: >-
+    results is failed and
+    "No such container" not in results.stderr | default(false)
+  changed_when: >-
+    'No such container' not in results.stderr | default(false)
+
+- name: Restart cadvisor
+  ansible.builtin.command: "docker restart {{ cadvisor_name }}"

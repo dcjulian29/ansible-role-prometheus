@@ -1,0 +1,33 @@
+{% if alertmanager_receivers | length > 0 %}
+route:
+{% for receiver in alertmanager_receivers %}
+  receiver: "mail"
+  repeat_interval: 4h
+  group_by: [ alertname ]
+{% endfor %}
+
+receivers:
+{% for receiver in alertmanager_receivers %}
+  - name: "{{ receiver.name }}"
+{% if result.email is defined %}
+    email_configs:
+      - auth_password: "{{ receiver.email.password }}"
+        auth_username: "{{ receiver.email.username }}"
+        from: "{{ receiver.email.from }}"
+        smarthost: "{{ receiver.email.smarthost }}"
+        to: "{{ receiver.email.to }}"
+{% endif %}
+{% if result.discord is defined %}
+    discord_configs:
+      - webhook_url: "{{ receiver.discord.webhook_url }}"
+{% endif %}
+{% if result.slack is defined %}
+    slack_configs:
+      - api_url: "{{ receiver.slack.api_url }}"
+{% endif %}
+{% if result.webhook is defined %}
+    webhooks_configs:
+      - url: "{{ receiver.webhook.url }}"
+{% endif %}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    scrape_interval: 30s
+    static_configs:
+    - targets: ["127.0.0.1:9090"]
+
+{% if prometheus_target_ips | length > 0 %}
+  - job_name: node-exporter
+    scrape_interval: 30s
+    static_configs:
+    - targets: {{ prometheus_target_ips | to_yaml }}
+{% endif %}{% if cadvisor_enabled and cadvisor_target_ips | length > 0 %}
+  - job_name: cadvisor
+    scrape_interval: 30s
+    static_configs:
+    - targets: {{ cadvisor_target_ips | to_yaml }}
+{% endif %}
+rule_files:
+  - prometheus_alerts_rules.yml
+
+{% if alertmanager_enabled %}
+alerting:
+  alertmanagers:
+    - static_configs:
+      - targets:
+        - {{ alertmanager_name }}:9093
+{% endif %}

@@ -1,0 +1,83 @@
+---
+alertmanager_data: /opt/alertmanager
+alertmanager_receivers: []
+  # - name: "mail"
+  #   repeat_interval: 4h
+  #   group_by: [ alertname ]
+  #   email:
+  #     from: alert@example.com
+  #     password: ""
+  #     smarthost: smtp.example.com
+  #     to: notify@example.com
+  #     username: notify
+  # - name: "discord"
+  #   repeat_interval: 2h
+  #   group_by: [ alertname ]
+  #   discord:
+  #     webhook_url: http://url
+  # - name: slack
+  #   repeat_interval: 2h
+  #   group_by: [ alertname ]
+  #   slack:
+  #     api_url: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+  #     channel: General
+  # - name: "webhook"
+  #   repeat_interval: 1h
+  #   group_by: [ alertname ]
+  #   webhook:
+  #     url: http://url
+alertmanager_enabled: "{{ alertmanager_receivers | length > 0 }}"
+alertmanager_image: prom/alertmanager
+alertmanager_labels: {}
+alertmanager_log_level: debug
+alertmanager_name: alertmanager
+alertmanager_port: 9093
+alertmanager_version: v0.28.0
+
+cadvisor_enabled: true
+cadvisor_image: gcr.io/cadvisor/cadvisor
+cadvisor_labels: {}
+cadvisor_name: cadvisor
+cadvisor_port: 8080
+cadvisor_target_ips:
+  - "127.0.0.1:8080"
+  # - "192.168.0.1:{{ cadvisor_port }}"
+  # - "192.168.0.2:{{ cadvisor_port }}"
+cadvisor_version: v0.52.1
+
+grafana_data: /opt/grafana
+grafana_enabled: true
+grafana_labels: {}
+grafana_name: grafana
+grafana_port: 3000
+grafana_image: grafana/grafana
+grafana_version: "11.6.0"
+
+node_exporter_image: prom/node-exporter
+node_exporter_labels: {}
+node_exporter_name: node-exporter
+node_exporter_port: 9100
+node_exporter_version: v1.9.0
+
+prometheus_alert_rules:
+  - alert: InstanceDown
+    expr: up == 0
+    for: 1m
+    annotations:
+      title: "Instance {{ '{{' }} $labels.instance }} down"
+      description: "{{ '{{' }} $labels.instance }} of job {{ '{{' }} $labels.job }} has been down for more than 1 minute."
+    labels:
+      severity: critical
+prometheus_data: /opt/prometheus
+prometheus_image: prom/prometheus
+prometheus_labels: {}
+prometheus_name: prometheus
+prometheus_network: prometheus-network
+prometheus_port: 9090
+prometheus_server: true
+prometheus_target: true
+prometheus_target_ips:
+  - "127.0.0.1:9100"
+  # - "192.168.0.1:{{ node_exporter_port }}"
+  # - "192.168.0.2:{{ node_exporter_port }}"
+prometheus_version: v2.53.4

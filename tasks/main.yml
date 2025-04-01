@@ -1,0 +1,10 @@
+---
+- name: Include tasks for Prometheus server
+  ansible.builtin.include_tasks:
+    file: server.yml
+  when: prometheus_server
+
+- name: Include tasks for Prometheus target
+  ansible.builtin.include_tasks:
+    file: target.yml
+  when: prometheus_target

@@ -1,0 +1,171 @@
+---
+- name: Ensure prometheus directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: "{{ item.state }}"
+    owner: "{{ 'root' if item.user is not defined else item.user }}"
+    group: "{{ 'root' if item.group is not defined else item.group }}"
+    mode: "{{ item.mode }}"
+    access_time: preserve
+    modification_time: preserve
+  loop:
+    - mode: "0755"
+      state: directory
+      path: "{{ prometheus_data }}"
+      user: 65534
+      group: 65534
+    - mode: "0755"
+      state: directory
+      path: "{{ prometheus_data }}/data"
+      user: 65534
+      group: 65534
+    - mode: "0755"
+      state: directory
+      path: "{{ alertmanager_data }}"
+    - mode: "0755"
+      state: directory
+      path: "{{ alertmanager_data }}/data"
+    - mode: "0755"
+      state: directory
+      path: "{{ alertmanager_data }}/config"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Include grafana tasks if enabled
+  ansible.builtin.include_tasks: grafana.yml
+  when: grafana_enabled
+
+- name: Pull prometheus docker image
+  community.docker.docker_image:
+    force_source: true
+    name: "{{ prometheus_image }}"
+    source: pull
+    tag: "{{ prometheus_version }}"
+  notify: Remove prometheus
+
+- name: Pull alertmanager docker image
+  community.docker.docker_image:
+    force_source: true
+    name: "{{ alertmanager_image }}"
+    source: pull
+    tag: "{{ alertmanager_version }}"
+  notify: Remove alertmanager
+  when: alertmanager_enabled
+
+- name: Ensure all handlers run before continuing
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure configuration files are present and configured
+  ansible.builtin.template:
+    dest: "{{ item.dest }}"
+    src: "{{ item.src }}"
+    lstrip_blocks: true
+    trim_blocks: true
+    owner: "{{ 'root' if item.user is not defined else item.user }}"
+    group: "{{ 'root' if item.group is not defined else item.group }}"
+    mode: "0644"
+  notify: "Restart {{ item.notify }}"
+  loop:
+    - dest: "{{ prometheus_data }}/prometheus.yml"
+      src: prometheus.yml.j2
+      user: 65534
+      group: 65534
+      notify: prometheus
+    - dest: "{{ prometheus_data }}/prometheus_alerts_rules.yml"
+      src: prometheus_alert_rules.yml.j2
+      user: 65534
+      group: 65534
+      notify: prometheus
+    - dest: "{{ alertmanager_data }}/alertmanager.yml"
+      src: alertmanager.yml.j2
+      notify: alertmanager
+
+- name: Ensure prometheus/grafana internal network exists
+  community.docker.docker_network:
+    name: "{{ prometheus_network }}"
+    driver: bridge
+  notify:
+    - Restart grafana
+    - Restart prometheus
+
+- name: Ensure prometheus container is created
+  community.docker.docker_container:
+    command: >
+      --config.file=/etc/prometheus/prometheus.yml
+      --storage.tsdb.path=/prometheus
+      --web.console.libraries=/etc/prometheus/console_libraries
+      --web.console.templates=/etc/prometheus/consoles
+      --web.enable-lifecycle
+    container_default_behavior: compatibility
+    detach: true
+    image: "{{ prometheus_image }}:{{ prometheus_version }}"
+    interactive: false
+    labels: "{{ prometheus_labels | default(omit) }}"
+    name: "{{ prometheus_name }}"
+    networks:
+      - name: "{{ prometheus_network }}"
+    ports:
+      - "{{ prometheus_port }}:9090"
+    restart_policy: always
+    security_opts:
+      - no-new-privileges:true
+    state: present
+    volumes:
+      - "{{ prometheus_data }}/prometheus.yml:/etc/prometheus/prometheus.yml"
+      - "{{ prometheus_data }}/prometheus_alerts_rules.yml:/etc/prometheus/prometheus_alerts_rules.yml"
+      - "{{ prometheus_data }}/data:/prometheus"
+  notify: Restart prometheus
+
+- name: Ensure alertmanager container is created
+  community.docker.docker_container:
+    command: >
+      --config.file=/config/alertmanager.yml
+      --log.level={{ alertmanager_log_level }}
+    container_default_behavior: compatibility
+    detach: true
+    image: "{{ alertmanager_image }}:{{ alertmanager_version }}"
+    interactive: false
+    labels: "{{ alertmanager_labels | default(omit) }}"
+    name: "{{ alertmanager_name }}"
+    networks:
+      - name: "{{ prometheus_network }}"
+    ports:
+      - "{{ alertmanager_port }}:9093"
+    restart_policy: always
+    security_opts:
+      - no-new-privileges:true
+    state: present
+    volumes:
+      - "{{ alertmanager_data }}/data:/data"
+      - "{{ alertmanager_data }}:/config"
+  notify: Restart alertmanager
+  when: alertmanager_enabled
+
+- name: Ensure grafana container is created
+  community.docker.docker_container:
+    container_default_behavior: compatibility
+    detach: true
+    image: "{{ grafana_image }}:{{ grafana_version }}"
+    interactive: false
+    labels: "{{ grafana_labels | default(omit) }}"
+    name: "{{ grafana_name }}"
+    networks:
+      - name: "{{ prometheus_network }}"
+    ports:
+      - "{{ grafana_port }}:3000"
+    restart_policy: always
+    security_opts:
+      - no-new-privileges:true
+    state: present
+    volumes:
+      - "{{ grafana_data }}/data:/var/lib/grafana"
+      - "{{ grafana_data }}/provisioning:/etc/grafana/provisioning"
+      - "{{ grafana_data }}/dashboards:/var/lib/grafana/dashboards"
+    env:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+  notify: Restart grafana
+  when: grafana_enabled
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers

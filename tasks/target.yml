@@ -1,0 +1,67 @@
+---
+- name: Pull node-exporter docker image
+  community.docker.docker_image:
+    force_source: true
+    name: "{{ node_exporter_image }}"
+    source: pull
+    tag: "{{ node_exporter_version }}"
+  notify: Remove node-exporter
+
+- name: Pull cAdvisor docker image
+  community.docker.docker_image:
+    force_source: true
+    name: "{{ cadvisor_image }}"
+    source: pull
+    tag: "{{ cadvisor_version }}"
+  notify: Remove cadvisor
+  when: cadvisor_enabled
+
+- name: Ensure all handlers run before continuing
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure node-exporter container is created
+  community.docker.docker_container:
+    command: >
+      --path.procfs=/host/proc
+      --path.rootfs=/rootfs
+      --path.sysfs=/host/sys
+      --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    container_default_behavior: compatibility
+    detach: true
+    image: "{{ node_exporter_image }}:{{ node_exporter_version }}"
+    interactive: false
+    labels: "{{ node_exporter_labels | default(omit) }}"
+    name: "{{ node_exporter_name }}"
+    ports:
+      - "{{ node_exporter_port }}:9100"
+    restart_policy: always
+    state: present
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+  notify: Restart node-exporter
+
+- name: Ensure cAdvisor container is created
+  community.docker.docker_container:
+    container_default_behavior: compatibility
+    detach: true
+    image: "{{ cadvisor_image }}:{{ cadvisor_version }}"
+    interactive: false
+    labels: "{{ cadvisor_labels | default(omit) }}"
+    name: "{{ cadvisor_name }}"
+    ports:
+      - "{{ cadvisor_port }}:8080"
+    restart_policy: always
+    state: present
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+  notify: Restart cadvisor
+  when: cadvisor_enabled
+
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers

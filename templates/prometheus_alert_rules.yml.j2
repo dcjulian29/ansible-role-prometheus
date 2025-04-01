@@ -1,0 +1,4 @@
+groups:
+  - name: AllInstances
+    rules:
+      {{ prometheus_alert_rules | to_nice_yaml(indent=2) | indent(6) }}

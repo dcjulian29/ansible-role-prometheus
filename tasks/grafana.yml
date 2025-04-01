@@ -1,0 +1,65 @@
+---
+- name: Ensure grafana directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: "{{ item.state }}"
+    owner: 472
+    group: 472
+    mode: "0755"
+    access_time: preserve
+    modification_time: preserve
+  loop:
+    - state: directory
+      path: "{{ grafana_data }}"
+    - state: directory
+      path: "{{ grafana_data }}/data"
+    - state: directory
+      path: "{{ grafana_data }}/dashboards"
+    - state: directory
+      path: "{{ grafana_data }}/dashboards/main"
+    - state: directory
+      path: "{{ grafana_data }}/provisioning"
+    - state: directory
+      path: "{{ grafana_data }}/provisioning/dashboards"
+    - state: directory
+      path: "{{ grafana_data }}/provisioning/datasources"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Ensure dashboard and datasource is present and configured
+  ansible.builtin.template:
+    dest: "{{ item.dest }}"
+    src: "{{ item.src }}"
+    lstrip_blocks: true
+    trim_blocks: true
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart grafana
+  loop:
+    - dest: "{{ grafana_data }}/dashboards/main/node-exporter.json"
+      src: node-exporter.json.j2
+    - dest: "{{ grafana_data }}/provisioning/dashboards/all.yml"
+      src: dashboard_all.yml.j2
+    - dest: "{{ grafana_data }}/provisioning/datasources/all.yml"
+      src: datasource_all.yml.j2
+
+- name: Ensure cAdvisor dashboard is present and configured
+  ansible.builtin.template:
+    dest: "{{ grafana_data }}/dashboards/main/cadvisor.json"
+    src: cadvisor.json.j2
+    lstrip_blocks: true
+    trim_blocks: true
+    owner: root
+    group: root
+    mode: "0644"
+  when: cadvisor_enabled
+  notify: Restart grafana
+
+- name: Pull grafana docker image
+  community.docker.docker_image:
+    force_source: true
+    name: "{{ grafana_image }}"
+    source: pull
+    tag: "{{ grafana_version }}"
+  notify: Remove grafana
